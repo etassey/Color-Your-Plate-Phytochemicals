@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Color Your Plate: Phytochemical Game</title>
+<style>
+  :root{
+    --red:#e74c3c; --orange:#f39c12; --green:#27ae60; --purple:#8e44ad; --white:#7f8c8d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #fdfaf4;
+    color: #2c2c2c;
+    margin: 0;
+    padding: 0 0 60px 0;
+  }
+  header {
+    background: linear-gradient(90deg,#e74c3c,#f39c12,#27ae60,#8e44ad);
+    color: white;
+    padding: 28px 20px;
+    text-align: center;
+  }
+  header h1 { margin: 0 0 6px 0; font-size: 1.8em; }
+  header p { margin: 0; opacity: 0.95; }
+  .container { max-width: 900px; margin: 0 auto; padding: 24px 20px; }
+  section.card {
+    background: white;
+    border-radius: 12px;
+    padding: 22px 24px;
+    margin-bottom: 26px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  h2 { margin-top: 0; color: #34495e; border-bottom: 3px solid #f3e9d2; padding-bottom: 8px; }
+  .score-bar {
+    position: sticky; top: 0; z-index: 10;
+    background: #2c3e50; color: white; padding: 10px 20px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-weight: bold; font-size: 0.95em;
+  }
+  .score-bar span#scoreVal { color: #f1c40f; }
+  textarea, input[type=text] {
+    width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc;
+    font-family: inherit; font-size: 0.95em; margin-top: 6px;
+  }
+  textarea { min-height: 60px; resize: vertical; }
+  .meal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .meal-grid label { font-weight: 600; display:block; margin-bottom: 4px;}
+  .meal-grid > div { background:#faf6ee; padding: 10px; border-radius: 8px; }
+
+  /* Matching game */
+  .match-row { display:flex; align-items:center; gap:14px; margin-bottom:12px; flex-wrap: wrap; }
+  .color-chip {
+    min-width: 150px; padding: 10px 14px; border-radius: 8px; color:white; font-weight:bold;
+    text-align:center;
+  }
+  .chip-red{background:var(--red);} .chip-orange{background:var(--orange);}
+  .chip-green{background:var(--green);} .chip-purple{background:var(--purple);}
+  .chip-white{background:var(--white);}
+  select.phyto-select {
+    padding: 8px; border-radius: 6px; border: 1px solid #aaa; font-size: 0.95em; flex:1; min-width: 200px;
+  }
+  .feedback { font-size: 1.2em; min-width: 28px; text-align:center; }
+  #checkMatchBtn, #resetSortBtn, .btn {
+    background:#27ae60; color:white; border:none; padding: 10px 18px;
+    border-radius: 8px; font-size: 1em; cursor:pointer; margin-top: 10px;
+  }
+  #checkMatchBtn:hover, .btn:hover { background:#1e8449; }
+
+  /* Drag and drop sorting game */
+  #foodBank {
+    display:flex; flex-wrap:wrap; gap:10px; padding:14px; background:#faf6ee;
+    border-radius:8px; margin-bottom:16px; min-height: 60px;
+  }
+  .food-tile {
+    background:white; border:2px solid #ddd; border-radius:20px; padding:8px 14px;
+    cursor:grab; font-size:0.95em; user-select:none; box-shadow:0 1px 3px rgba(0,0,0,0.1);
+  }
+  .bins { display:grid; grid-template-columns: repeat(5,1fr); gap:10px; }
+  .bin {
+    min-height: 140px; border-radius: 10px; padding: 10px; color:white; text-align:center;
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .bin h4 { margin: 2px 0 6px 0; font-size:0.9em; }
+  .bin.over { outline: 3px dashed white; }
+  .bin .food-tile { color:#2c2c2c; }
+  @media (max-width: 700px){
+    .bins{ grid-template-columns: repeat(2,1fr); }
+    .meal-grid{ grid-template-columns: 1fr; }
+  }
+  #sortResult { margin-top: 12px; font-weight: bold; }
+  .checklist label { display:block; margin: 4px 0; }
+  .progress-wrap { background:#eee; border-radius: 20px; overflow:hidden; height: 20px; margin-top: 10px; }
+  #planProgress { height:100%; width:0%; background: linear-gradient(90deg,#e74c3c,#f39c12,#27ae60,#8e44ad); transition: width 0.3s; }
+  .small-note { font-size:0.85em; color:#666; }
+
+  /* Compile answers */
+  #compiledOutput { min-height: 320px; font-family: Consolas, Menlo, monospace; font-size: 0.88em; background:#faf6ee; }
+  .btn.alt { background:#2c3e50; }
+  .btn.alt:hover { background:#1b2733; }
+  #compileStatus { margin-left: 10px; font-weight: bold; color:#27ae60; }
+  .btn:focus-visible, textarea:focus-visible, input:focus-visible { outline: 3px solid #8e44ad; outline-offset: 2px; }
+</style>
+</head>
+<body>
+
+<div class="score-bar">
+  <div>🎮 Color Your Plate Challenge</div>
+  <div>Score: <span id="scoreVal">0</span> / <span id="scoreMax">0</span></div>
+</div>
+
+<header>
+  <h1>Color Your Plate: Phytochemical Game</h1>
+  <p>Match and sort your way to a more colorful diet!</p>
+</header>
+
+<div class="container">
+
+  <!-- PART 1 -->
+  <section class="card">
+    <h2>Part 1: Choose a Day to Analyze</h2>
+    <p>Use ONE of the following: meals from one day of your recent 3-day intake record, meals from one day last week, or a typical day of eating.</p>
+    <div class="meal-grid">
+      <div><label>Breakfast</label><textarea placeholder="What did you eat?"></textarea></div>
+      <div><label>Lunch</label><textarea placeholder="What did you eat?"></textarea></div>
+      <div><label>Dinner</label><textarea placeholder="What did you eat?"></textarea></div>
+      <div><label>Snack(s)</label><textarea placeholder="What did you eat?"></textarea></div>
+    </div>
+  </section>
+
+  <!-- PART 2 -->
+  <section class="card">
+    <h2>Part 2: What Is a Phytochemical?</h2>
+    <label><strong>1. Define phytochemical in your own words:</strong></label>
+    <textarea placeholder="Type your definition here..."></textarea>
+    <p style="margin-top:16px;"><strong>2. Phytochemicals are found in:</strong> <span class="small-note">(hint: "phyto" means plant)</span></p>
+    <label><input type="radio" name="foundIn"> Animal foods</label>
+    <label><input type="radio" name="foundIn"> Plant foods</label>
+    <label><input type="radio" name="foundIn"> Both</label>
+    <div id="foundInFeedback" style="margin-top:6px; font-weight:bold;"></div>
+  </section>
+
+  <!-- GAME 1: MATCHING -->
+  <section class="card">
+    <h2>🎯 Game 1: Match the Phytochemical</h2>
+    <p>Pick the correct phytochemical for each color group, then hit "Check My Matches."</p>
+
+    <div class="match-row">
+      <div class="color-chip chip-red">🔴 Red</div>
+      <select class="phyto-select" data-answer="Lycopene">
+        <option value="">-- choose --</option>
+        <option>Lycopene</option><option>Beta Carotene</option><option>Chlorophyll</option><option>Anthocyanin</option><option>Allicin</option>
+      </select>
+      <span class="feedback" id="fb0"></span>
+    </div>
+    <div class="match-row">
+      <div class="color-chip chip-orange">🟠 Orange/Yellow</div>
+      <select class="phyto-select" data-answer="Beta Carotene">
+        <option value="">-- choose --</option>
+        <option>Lycopene</option><option>Beta Carotene</option><option>Chlorophyll</option><option>Anthocyanin</option><option>Allicin</option>
+      </select>
+      <span class="feedback" id="fb1"></span>
+    </div>
+    <div class="match-row">
+      <div class="color-chip chip-green">🟢 Green</div>
+      <select class="phyto-select" data-answer="Chlorophyll">
+        <option value="">-- choose --</option>
+        <option>Lycopene</option><option>Beta Carotene</option><option>Chlorophyll</option><option>Anthocyanin</option><option>Allicin</option>
+      </select>
+      <span class="feedback" id="fb2"></span>
+    </div>
+    <div class="match-row">
+      <div class="color-chip chip-purple">🟣 Blue/Purple</div>
+      <select class="phyto-select" data-answer="Anthocyanin">
+        <option value="">-- choose --</option>
+        <option>Lycopene</option><option>Beta Carotene</option><option>Chlorophyll</option><option>Anthocyanin</option><option>Allicin</option>
+      </select>
+      <span class="feedback" id="fb3"></span>
+    </div>
+    <div class="match-row">
+      <div class="color-chip chip-white">⚪ White</div>
+      <select class="phyto-select" data-answer="Allicin">
+        <option value="">-- choose --</option>
+        <option>Lycopene</option><option>Beta Carotene</option><option>Chlorophyll</option><option>Anthocyanin</option><option>Allicin</option>
+      </select>
+      <span class="feedback" id="fb4"></span>
+    </div>
+
+    <button id="checkMatchBtn" class="btn">Check My Matches</button>
+    <div id="matchResult" style="margin-top:10px; font-weight:bold;"></div>
+  </section>
+
+  <!-- GAME 2: DRAG AND DROP SORTING -->
+  <section class="card">
+    <h2>🥗 Game 2: Sort the Foods by Color</h2>
+    <p>Drag each food tile into the color bin where it belongs. Record your own foods from Part 1 too — type any extra foods you ate into the box below each bin if they're missing from the bank!</p>
+
+    <div id="foodBank"></div>
+
+    <div class="bins">
+      <div class="bin chip-red" data-color="Red"><h4>🔴 Red</h4></div>
+      <div class="bin chip-orange" data-color="Orange/Yellow"><h4>🟠 Orange/Yellow</h4></div>
+      <div class="bin chip-green" data-color="Green"><h4>🟢 Green</h4></div>
+      <div class="bin chip-purple" data-color="Blue/Purple"><h4>🟣 Blue/Purple</h4></div>
+      <div class="bin chip-white" data-color="White"><h4>⚪ White</h4></div>
+    </div>
+
+    <button id="checkSortBtn" class="btn">Check My Sorting</button>
+    <button id="resetSortBtn" class="btn" style="background:#c0392b;">Reset Game</button>
+    <div id="sortResult"></div>
+  </section>
+
+  <!-- PART 4 -->
+  <section class="card">
+    <h2>Part 4: Reflection</h2>
+    <label><strong>1. Which colors did you eat the most?</strong></label>
+    <textarea></textarea>
+    <label style="margin-top:12px; display:block;"><strong>2. Which colors were missing or limited?</strong></label>
+    <textarea></textarea>
+    <label style="margin-top:12px; display:block;"><strong>3. Approximately how many different plant foods did you consume?</strong></label>
+    <input type="text" placeholder="e.g., 5">
+    <label style="margin-top:12px; display:block;"><strong>4. What does this suggest about the variety of phytochemicals in your diet and connection to health benefits?</strong></label>
+    <textarea></textarea>
+  </section>
+
+  <!-- COMPILE ANSWERS -->
+  <section class="card" id="compileSection">
+    <h2>Compile My Answers</h2>
+    <p>When you're done, compile everything into one summary. Then copy it or download it to turn in. You can edit the text below before you copy it.</p>
+    <label for="studentName"><strong>Your name</strong></label>
+    <input type="text" id="studentName" placeholder="First and last name">
+    <div>
+      <button id="compileBtn" class="btn">Compile My Answers</button>
+      <button id="copyBtn" class="btn alt">Copy to Clipboard</button>
+      <button id="downloadBtn" class="btn alt">Download as .txt</button>
+      <span id="compileStatus" role="status"></span>
+    </div>
+    <textarea id="compiledOutput" placeholder="Your compiled answers will appear here."></textarea>
+  </section>
+
+</div>
+
+<script>
+  // ----- SCORE TRACKING -----
+  let score = 0;
+  let scoreMax = 0;
+  function addScore(points, maxPoints){
+    score += points;
+    scoreMax += maxPoints;
+    document.getElementById('scoreVal').textContent = score;
+    document.getElementById('scoreMax').textContent = scoreMax;
+  }
+
+  // ----- PART 2 radio feedback -----
+  document.querySelectorAll('input[name=foundIn]').forEach((r,i)=>{
+    r.addEventListener('change', ()=>{
+      const fb = document.getElementById('foundInFeedback');
+      if(r.value === '' ) return;
+      const labelText = r.parentElement.textContent.trim();
+      if(labelText === 'Plant foods'){
+        fb.textContent = '✅ Correct! Phytochemicals come from plant foods.';
+        fb.style.color = '#27ae60';
+      } else {
+        fb.textContent = '❌ Not quite — remember "phyto" means plant.';
+        fb.style.color = '#c0392b';
+      }
+    });
+  });
+
+  // ----- GAME 1: MATCHING -----
+  let matchChecked = false;
+  document.getElementById('checkMatchBtn').addEventListener('click', ()=>{
+    const selects = document.querySelectorAll('.phyto-select');
+    let correctCount = 0;
+    selects.forEach((sel,i)=>{
+      const fb = document.getElementById('fb'+i);
+      if(sel.value === sel.dataset.answer){
+        fb.textContent = '✅';
+        correctCount++;
+      } else if (sel.value === '') {
+        fb.textContent = '⬜';
+      } else {
+        fb.textContent = '❌';
+      }
+    });
+    document.getElementById('matchResult').textContent =
+      `You matched ${correctCount} out of 5 correctly!`;
+    if(!matchChecked){
+      addScore(correctCount, 5);
+      matchChecked = true;
+    } else {
+      // recompute score for this game only by resetting and reapplying
+      // simplest: don't double count, just update display message
+    }
+  });
+
+  // ----- GAME 2: DRAG AND DROP SORTING -----
+  const foods = [
+    {name:'Tomato', color:'Red'},
+    {name:'Strawberries', color:'Red'},
+    {name:'Carrot', color:'Orange/Yellow'},
+    {name:'Orange', color:'Orange/Yellow'},
+    {name:'Spinach', color:'Green'},
+    {name:'Broccoli', color:'Green'},
+    {name:'Blueberries', color:'Blue/Purple'},
+    {name:'Purple Cabbage', color:'Blue/Purple'},
+    {name:'Garlic', color:'White'},
+    {name:'Onion', color:'White'}
+  ];
+
+  const foodBank = document.getElementById('foodBank');
+  let sortChecked = false;
+
+  function shuffle(arr){
+    for(let i = arr.length -1; i>0; i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]] = [arr[j],arr[i]];
+    }
+    return arr;
+  }
+
+  function buildFoodBank(){
+    foodBank.innerHTML = '';
+    shuffle([...foods]).forEach(f=>{
+      const tile = document.createElement('div');
+      tile.className = 'food-tile';
+      tile.textContent = f.name;
+      tile.draggable = true;
+      tile.dataset.color = f.color;
+      tile.addEventListener('dragstart', e=>{
+        e.dataTransfer.setData('text/plain', f.name);
+      });
+      foodBank.appendChild(tile);
+    });
+  }
+  buildFoodBank();
+
+  document.querySelectorAll('.bin').forEach(bin=>{
+    bin.addEventListener('dragover', e=>{
+      e.preventDefault();
+      bin.classList.add('over');
+    });
+    bin.addEventListener('dragleave', ()=> bin.classList.remove('over'));
+    bin.addEventListener('drop', e=>{
+      e.preventDefault();
+      bin.classList.remove('over');
+      const name = e.dataTransfer.getData('text/plain');
+      const tile = [...document.querySelectorAll('.food-tile')].find(t=>t.textContent === name);
+      if(tile) bin.appendChild(tile);
+    });
+  });
+  // allow dragging back to bank
+  foodBank.addEventListener('dragover', e=> e.preventDefault());
+  foodBank.addEventListener('drop', e=>{
+    e.preventDefault();
+    const name = e.dataTransfer.getData('text/plain');
+    const tile = [...document.querySelectorAll('.food-tile')].find(t=>t.textContent === name);
+    if(tile) foodBank.appendChild(tile);
+  });
+
+  document.getElementById('checkSortBtn').addEventListener('click', ()=>{
+    const bins = document.querySelectorAll('.bin');
+    let correct = 0, total = foods.length;
+    bins.forEach(bin=>{
+      const color = bin.dataset.color;
+      bin.querySelectorAll('.food-tile').forEach(tile=>{
+        if(tile.dataset.color === color) correct++;
+      });
+    });
+    document.getElementById('sortResult').textContent =
+      `You correctly sorted ${correct} out of ${total} foods!`;
+    if(!sortChecked){
+      addScore(correct, total);
+      sortChecked = true;
+    }
+  });
+
+  document.getElementById('resetSortBtn').addEventListener('click', ()=>{
+    buildFoodBank();
+    document.getElementById('sortResult').textContent = '';
+  });
+
+  // ----- COMPILE ANSWERS -----
+  const output = document.getElementById('compiledOutput');
+  const statusEl = document.getElementById('compileStatus');
+  const NO_ANSWER = '(no answer)';
+
+  function flash(msg){
+    statusEl.textContent = msg;
+    setTimeout(()=>{ statusEl.textContent = ''; }, 3000);
+  }
+
+  function compileAnswers(){
+    const name = document.getElementById('studentName').value.trim();
+    const out = [
+      'COLOR YOUR PLATE: PHYTOCHEMICAL GAME',
+      'Name: ' + (name || '(not entered)'),
+      'Date: ' + new Date().toLocaleDateString(),
+      'Game score: ' + score + ' / ' + scoreMax,
+      ''
+    ];
+    if(!matchChecked) out.push('Note: Game 1 has not been checked yet.');
+    if(!sortChecked) out.push('Note: Game 2 has not been checked yet.');
+    if(!matchChecked || !sortChecked) out.push('');
+
+    document.querySelectorAll('section.card:not(#compileSection)').forEach(sec=>{
+      out.push('== ' + sec.querySelector('h2').textContent.trim() + ' ==');
+
+      if(sec.querySelector('.match-row')){
+        sec.querySelectorAll('.match-row').forEach(row=>{
+          const sel = row.querySelector('select');
+          const mark = !sel.value ? '' : (sel.value === sel.dataset.answer ? ' [correct]' : ' [incorrect]');
+          out.push(row.querySelector('.color-chip').textContent.trim() + ': ' + (sel.value || NO_ANSWER) + mark);
+        });
+      } else if(sec.querySelector('.bins')){
+        sec.querySelectorAll('.bin').forEach(bin=>{
+          const items = [...bin.querySelectorAll('.food-tile')].map(t=>t.textContent);
+          out.push(bin.querySelector('h4').textContent.trim() + ': ' + (items.join(', ') || '(none)'));
+        });
+        const left = [...document.querySelectorAll('#foodBank .food-tile')].map(t=>t.textContent);
+        if(left.length) out.push('Not sorted: ' + left.join(', '));
+      } else {
+        sec.querySelectorAll('textarea, input[type=text]').forEach(el=>{
+          const lab = el.previousElementSibling;
+          const q = lab ? lab.textContent.trim() : 'Answer';
+          out.push(q);
+          out.push('  ' + (el.value.trim() || NO_ANSWER).replace(/\n/g, '\n  '));
+        });
+        if(sec.querySelector('input[type=radio]')){
+          const r = sec.querySelector('input[type=radio]:checked');
+          out.push('Phytochemicals are found in:');
+          out.push('  ' + (r ? r.parentElement.textContent.trim() : NO_ANSWER));
+        }
+      }
+      out.push('');
+    });
+    output.value = out.join('\n');
+    flash('Compiled!');
+  }
+
+  function ensureCompiled(){
+    if(!output.value.trim()) compileAnswers();
+  }
+
+  document.getElementById('compileBtn').addEventListener('click', compileAnswers);
+
+  document.getElementById('copyBtn').addEventListener('click', ()=>{
+    ensureCompiled();
+    const done = ()=> flash('Copied!');
+    const fallback = ()=>{ output.select(); document.execCommand('copy'); done(); };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(output.value).then(done, fallback);
+    } else {
+      fallback();
+    }
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', ()=>{
+    ensureCompiled();
+    const name = document.getElementById('studentName').value.trim().replace(/[^\w-]+/g, '_');
+    const blob = new Blob([output.value], {type:'text/plain'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (name ? name + '_' : '') + 'phytochemical_answers.txt';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+    flash('Downloaded!');
+  });
+
+</script>
+
+</body>
+</html>
